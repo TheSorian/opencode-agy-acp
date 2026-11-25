@@ -1,0 +1,95 @@
+{
+  "providers": {
+    "agy": {
+      "name": "Antigravity (agy ACP)",
+      "package": "@opencode/ai/providers/openai-compatible",
+      "settings": {
+        "baseURL": "http://127.0.0.1:18799/v1",
+        "apiKey": "local-acp"
+      },
+      "models": {
+        "gemini-4-neon": {
+          "name": "Gemini 4 Neon",
+          "limit": { "context": 200000, "output": 65536 },
+          "variants": [
+            { "id": "low", "headers": { "x-agy-effort": "low" }, "body": { "reasoning_effort": "low" } },
+            { "id": "medium", "headers": { "x-agy-effort": "medium" }, "body": { "reasoning_effort": "medium" } },
+            { "id": "high", "headers": { "x-agy-effort": "high" }, "body": { "reasoning_effort": "high" } },
+            { "id": "xhigh", "headers": { "x-agy-effort": "xhigh" }, "body": { "reasoning_effort": "xhigh" } }
+          ]
+        },
+        "gemini-4-carbon": {
+          "name": "Gemini 4 Carbon",
+          "limit": { "context": 200000, "output": 65536 },
+          "variants": [
+            { "id": "low", "headers": { "x-agy-effort": "low" }, "body": { "reasoning_effort": "low" } },
+            { "id": "medium", "headers": { "x-agy-effort": "medium" }, "body": { "reasoning_effort": "medium" } },
+            { "id": "high", "headers": { "x-agy-effort": "high" }, "body": { "reasoning_effort": "high" } }
+          ]
+        },
+        "gemini-4-argon": {
+          "name": "Gemini 4 Argon",
+          "limit": { "context": 200000, "output": 65536 },
+          "variants": [
+            { "id": "low", "headers": { "x-agy-effort": "low" }, "body": { "reasoning_effort": "low" } },
+            { "id": "medium", "headers": { "x-agy-effort": "medium" }, "body": { "reasoning_effort": "medium" } },
+            { "id": "high", "headers": { "x-agy-effort": "high" }, "body": { "reasoning_effort": "high" } }
+          ]
+        },
+        "gemini-4-hydrogen": {
+          "name": "Gemini 4 Hydrogen",
+          "limit": { "context": 200000, "output": 65536 },
+          "variants": [
+            { "id": "low", "headers": { "x-agy-effort": "low" }, "body": { "reasoning_effort": "low" } },
+            { "id": "medium", "headers": { "x-agy-effort": "medium" }, "body": { "reasoning_effort": "medium" } },
+            { "id": "high", "headers": { "x-agy-effort": "high" }, "body": { "reasoning_effort": "high" } },
+            { "id": "xhigh", "headers": { "x-agy-effort": "xhigh" }, "body": { "reasoning_effort": "xhigh" } }
+          ]
+        },
+        "gemini-3.8-flash": {
+          "name": "Gemini 3.8 Flash",
+          "limit": { "context": 200000, "output": 65536 },
+          "variants": [
+            { "id": "low", "headers": { "x-agy-effort": "low" }, "body": { "reasoning_effort": "low" } },
+            { "id": "medium", "headers": { "x-agy-effort": "medium" }, "body": { "reasoning_effort": "medium" } },
+            { "id": "high", "headers": { "x-agy-effort": "high" }, "body": { "reasoning_effort": "high" } }
+          ]
+        },
+        "claude-opus-5-5": {
+          "name": "Claude Opus 5.5",
+          "limit": { "context": 200000, "output": 128000 },
+          "variants": [
+            { "id": "low", "headers": { "x-agy-effort": "low" }, "body": { "reasoning_effort": "low" } },
+            { "id": "medium", "headers": { "x-agy-effort": "medium" }, "body": { "reasoning_effort": "medium" } },
+            { "id": "high", "headers": { "x-agy-effort": "high" }, "body": { "reasoning_effort": "high" } }
+          ]
+        },
+        "claude-sonnet-5-5": {
+          "name": "Claude Sonnet 5.5",
+          "limit": { "context": 200000, "output": 128000 },
+          "variants": [
+            { "id": "low", "headers": { "x-agy-effort": "low" }, "body": { "reasoning_effort": "low" } },
+            { "id": "medium", "headers": { "x-agy-effort": "medium" }, "body": { "reasoning_effort": "medium" } },
+            { "id": "high", "headers": { "x-agy-effort": "high" }, "body": { "reasoning_effort": "high" } }
+          ]
+        },
+        "gemini-pro-orchestrator-neon": {
+          "name": "Orchestrator (Neon)",
+          "limit": { "context": 200000, "output": 65536 }
+        },
+        "gemini-pro-orchestrator": {
+          "name": "Orchestrator (Carbon)",
+          "limit": { "context": 200000, "output": 65536 }
+        },
+        "gemini-pro-orchestrator-argon": {
+          "name": "Orchestrator (Argon)",
+          "limit": { "context": 200000, "output": 65536 }
+        },
+        "gpt-oss-120b-medium": {
+          "name": "GPT-OSS 120B",
+          "limit": { "context": 200000, "output": 32768 }
+        }
+      }
+    }
+  }
+}

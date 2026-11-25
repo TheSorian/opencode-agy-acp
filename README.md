@@ -1,0 +1,67 @@
+# opencode-agy-acp
+
+Plugin oficial para **OpenCode v2** que conecta con el servidor **Agent Client Protocol (`agy acp --stdio`)** de Google Antigravity, permitiéndote elegir los modelos de `agy` y su nivel de esfuerzo (`low`, `medium`, `high`, `xhigh`) directamente desde OpenCode sin ningún proxy externo ni llamadas a endpoints no documentados.
+
+## Características
+
+- **100% oficial:** lanza y habla exclusivamente con `agy acp --stdio` por JSON-RPC 2.0.
+- **Sin demonio externo:** corre dentro del propio proceso de OpenCode (`127.0.0.1:18799`) y se detiene automáticamente al cerrar OpenCode.
+- **Selector de esfuerzo nativo:** agrupa los 27 modelos en **11 modelos base** usando `variants` de OpenCode (`low`, `medium`, `high`, `xhigh`).
+- **Streaming + razonamiento:** soporta `agent_message_chunk` y `agent_thought_chunk`.
+- **Sesiones persistentes:** reutiliza la sesión de ACP entre turnos de la misma conversación y soporta cambio de modelo/esfuerzo sobre la marcha.
+
+## Requisitos
+
+1. [Antigravity CLI (`agy`)](https://antigravity.google) instalada, autenticada y en el `PATH` (prueba con `agy models`).
+2. **OpenCode v2** (`opencode --version`).
+
+## Instalación rápida
+
+### 1. Instalar el plugin
+
+**Opción A — Directo desde GitHub (recomendado):**
+```bash
+opencode plugin add github:TheSorian/opencode-agy-acp
+```
+
+**Opción B — Copia manual (Linux / macOS):**
+```bash
+mkdir -p ~/.config/opencode/plugins
+curl -fsSL https://raw.githubusercontent.com/TheSorian/opencode-agy-acp/main/index.ts \
+  -o ~/.config/opencode/plugins/agy-acp.ts
+```
+
+**Opción B — Copia manual (Windows PowerShell):**
+```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.config\opencode\plugins" | Out-Null
+Invoke-WebRequest "https://raw.githubusercontent.com/TheSorian/opencode-agy-acp/main/index.ts" `
+  -OutFile "$env:USERPROFILE\.config\opencode\plugins\agy-acp.ts"
+```
+
+### 2. Añadir el proveedor en `opencode.jsonc`
+
+Copia el bloque `agy` de [`opencode.provider.jsonc`](./opencode.provider.jsonc) dentro de `"providers"` en tu `~/.config/opencode/opencode.jsonc`.
+
+### 3. Reiniciar OpenCode y probar
+
+```bash
+opencode service restart
+opencode run --model "agy/gemini-3.8-flash#low" "Di solo: OK"
+```
+
+También puedes comprobar el estado del puente interno con:
+```bash
+curl http://127.0.0.1:18799/health
+```
+
+## Variables de entorno opcionales
+
+| Variable | Valor por defecto | Descripción |
+| --- | --- | --- |
+| `AGY_ACP_PORT` | `18799` | Puerto local en `127.0.0.1` para el puente interno del plugin |
+| `AGY_BIN` | `agy` | Ruta o nombre del binario de Antigravity CLI |
+| `AGY_ACP_AUTO_APPROVE` | `false` | Si es `true`, aprueba automáticamente las solicitudes de permiso de `agy acp` (por defecto se rechazan por seguridad) |
+
+## Licencia
+
+MIT

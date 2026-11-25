@@ -1,0 +1,23 @@
+{
+  "name": "opencode-agy-acp",
+  "version": "1.0.0",
+  "description": "OpenCode v2 plugin bridging Google Antigravity's official `agy acp` server with native model and effort variant selection.",
+  "type": "module",
+  "main": "./index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "antigravity",
+    "agy",
+    "acp",
+    "agent-client-protocol"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TheSorian/opencode-agy-acp.git"
+  }
+}
