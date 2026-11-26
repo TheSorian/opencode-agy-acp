@@ -36,7 +36,21 @@ curl -fsSL https://raw.githubusercontent.com/TheSorian/opencode-agy-acp/main/ind
 New-Item -ItemType Directory -Force "$env:USERPROFILE\.config\opencode\plugins" | Out-Null
 Invoke-WebRequest "https://raw.githubusercontent.com/TheSorian/opencode-agy-acp/main/index.ts" `
   -OutFile "$env:USERPROFILE\.config\opencode\plugins\agy-acp.ts"
+Invoke-WebRequest "https://raw.githubusercontent.com/TheSorian/opencode-agy-acp/main/agy-acp-worker.mjs" `
+  -OutFile "$env:USERPROFILE\.config\opencode\agy-acp-worker.mjs"
 ```
+
+> **Nota para Windows (`agy-acp-worker.mjs`):**  
+> En Windows, cuando `opencode.exe` (Bun) lanza `agy acp --stdio` directamente como subproceso hijo, `agy.exe` se queda bloqueado en la llamada `authenticate` (`Sign-in timed out`).  
+> Para evitarlo, el plugin se conecta por TCP (`127.0.0.1:18796`) a [`agy-acp-worker.mjs`](./agy-acp-worker.mjs), un pequeño worker Node que ejecuta `agy acp --stdio` fuera del árbol de procesos de `opencode.exe`.  
+> Puedes dejarlo arrancando automáticamente al iniciar sesión en Windows con:
+> ```powershell
+> $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -WindowStyle Hidden -Command `"Start-Process -WindowStyle Hidden node '$env:USERPROFILE\.config\opencode\agy-acp-worker.mjs'`""
+> $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+> $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)
+> Register-ScheduledTask -TaskName "agy-acp-worker" -Action $action -Trigger $trigger -Settings $settings -Force
+> Start-ScheduledTask -TaskName "agy-acp-worker"
+> ```
 
 ### 2. Añadir el proveedor en `opencode.jsonc`
 
@@ -59,8 +73,15 @@ curl http://127.0.0.1:18799/health
 | Variable | Valor por defecto | Descripción |
 | --- | --- | --- |
 | `AGY_ACP_PORT` | `18799` | Puerto local en `127.0.0.1` para el puente interno del plugin |
+| `AGY_ACP_WORKER_PORT` | `18796` | Puerto TCP local en `127.0.0.1` para `agy-acp-worker.mjs` |
 | `AGY_BIN` | `agy` | Ruta o nombre del binario de Antigravity CLI |
 | `AGY_ACP_AUTO_APPROVE` | `false` | Si es `true`, aprueba automáticamente las solicitudes de permiso de `agy acp` (por defecto se rechazan por seguridad) |
+
+## Notas técnicas
+
+- **Handshake ACP:** tras `initialize`, el plugin invoca `authenticate` automáticamente usando el primer método devuelto en `authMethods` (por ejemplo `oauth-personal`), evitando el error `-32000: Authentication required`.
+- **Mensajes `system`:** al iniciar una sesión nueva se incluyen los mensajes con rol `system` antes del historial para respetar instrucciones del sistema y plantillas de OpenCode.
+- **Compactación (`compaction`):** si usas OpenChamber/OpenCode con sesiones largas, puedes asignar un modelo ligero en `opencode.jsonc` bajo `"agent": { "compaction": { "model": "..." } }` para evitar que la compactación use el agente completo.
 
 ## Licencia
 

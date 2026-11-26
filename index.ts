@@ -7,6 +7,13 @@
  * without any external proxy daemon or unofficial API calls.
  */
 
+import { join } from "path";
+import { homedir } from "os";
+import { spawn } from "child_process";
+import net from "net";
+
+function debugLog(_msg: string) {}
+
 const PORT = Number(process.env.AGY_ACP_PORT || "18799");
 const AGY_BIN = process.env.AGY_BIN || "agy";
 const AUTO_APPROVE = process.env.AGY_ACP_AUTO_APPROVE === "true";
@@ -55,31 +62,86 @@ class AgyAcpClient {
   }
 
   private async _start(): Promise<void> {
-    const BunRuntime = (globalThis as any).Bun;
-    this.proc = BunRuntime.spawn([AGY_BIN, "acp", "--stdio"], {
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
+    debugLog("_start called (node tcp worker)");
+    const workerPath = join(homedir(), ".config", "opencode", "agy-acp-worker.mjs");
+    const WORKER_PORT = Number(process.env.AGY_ACP_WORKER_PORT || "18796");
+
+    const connectSocket = () =>
+      new Promise<net.Socket>((resolve, reject) => {
+        const s = net.connect(WORKER_PORT, "127.0.0.1");
+        s.once("connect", () => resolve(s));
+        s.once("error", (err) => reject(err));
+      });
+
+    let sock: net.Socket;
+    try {
+      sock = await connectSocket();
+    } catch {
+      const worker = spawn("node", [workerPath], {
+        detached: true,
+        stdio: "ignore",
+        windowsHide: true,
+        env: { ...process.env, AGY_ACP_WORKER_PORT: String(WORKER_PORT), AGY_BIN },
+      });
+      worker.unref();
+      for (let i = 0; i < 20; i++) {
+        await new Promise((r) => setTimeout(r, 150));
+        try {
+          sock = await connectSocket();
+          break;
+        } catch {}
+      }
+      if (!sock!) {
+        throw new Error("Could not connect to agy-acp-worker");
+      }
+    }
+
+    this.proc = {
+      stdin: sock,
+      kill: () => sock.destroy(),
+    };
+
+    let stdoutBuf = "";
+    sock.on("data", (chunk: Buffer) => {
+      stdoutBuf += chunk.toString("utf8");
+      let idx: number;
+      while ((idx = stdoutBuf.indexOf("\n")) !== -1) {
+        const line = stdoutBuf.slice(0, idx).trim();
+        stdoutBuf = stdoutBuf.slice(idx + 1);
+        if (!line) continue;
+        try {
+          const msg: JsonRpcMessage = JSON.parse(line);
+          this._handleMessage(msg);
+        } catch {
+          // Ignore non-JSON lines if any
+        }
+      }
     });
 
-    this._readStdout(this.proc.stdout);
-    this._drainStderr(this.proc.stderr);
-
-    this.proc.exited.then(() => {
+    sock.on("close", () => {
+      debugLog("worker socket closed");
       this.initialized = false;
       this.proc = null;
       this.sessions.clear();
       for (const [, p] of this.pending) {
-        p.reject(new Error("agy acp process exited unexpectedly"));
+        p.reject(new Error("agy acp worker disconnected"));
       }
       this.pending.clear();
     });
 
-    await this.request("initialize", {
+    const initRes = await this.request("initialize", {
       protocolVersion: 1,
       clientCapabilities: {},
       clientInfo: { name: "opencode-agy-acp-plugin", version: "1.0.0" },
     });
+    debugLog(`initialize ok, authMethods=${JSON.stringify(initRes?.authMethods?.map((m: any) => m.id))}`);
+
+    if (Array.isArray(initRes?.authMethods) && initRes.authMethods.length > 0) {
+      await this.request("authenticate", {
+        methodId: initRes.authMethods[0].id,
+      });
+      debugLog("authenticate ok");
+    }
 
     this.initialized = true;
   }
@@ -114,10 +176,13 @@ class AgyAcpClient {
 
   private async _drainStderr(stream: ReadableStream<Uint8Array>) {
     const reader = stream.getReader();
+    const decoder = new TextDecoder();
     try {
       while (true) {
-        const { done } = await reader.read();
+        const { value, done } = await reader.read();
         if (done) break;
+        const txt = decoder.decode(value, { stream: true }).trim();
+        if (txt) debugLog(`STDERR: ${txt}`);
       }
     } catch {
       // Ignore
@@ -128,13 +193,13 @@ class AgyAcpClient {
     if (!this.proc?.stdin) {
       throw new Error("agy acp stdin is not available");
     }
-    this.proc.stdin.write(JSON.stringify(msg) + "\n");
-    if (typeof this.proc.stdin.flush === "function") {
-      this.proc.stdin.flush();
-    }
+    const payload = JSON.stringify(msg) + "\n";
+    this.proc.stdin.write(payload);
+    debugLog(`WRITE id=${msg.id} method=${msg.method} bytes=${payload.length}`);
   }
 
   private _handleMessage(msg: JsonRpcMessage) {
+    debugLog(`READ id=${msg.id} method=${msg.method} err=${msg.error ? msg.error.message : "none"}`);
     // Response to one of our requests
     if (msg.id !== undefined && msg.method === undefined) {
       const entry = this.pending.get(msg.id);
@@ -382,18 +447,27 @@ function buildPromptText(messages: any[], isNew: boolean): string {
     return extractText(messages[messages.length - 1]?.content);
   }
 
-  // New session: include system instruction (briefly) + any prior turns
-  const nonSystem = messages.filter((m) => m.role !== "system");
-  if (nonSystem.length === 1 && nonSystem[0].role === "user") {
-    return extractText(nonSystem[0].content);
-  }
-
-  return nonSystem
-    .map((m) => {
-      const role = m.role === "assistant" ? "Assistant" : "User";
-      return `${role}: ${extractText(m.content)}`;
-    })
+  // New session: include system instruction + any prior turns
+  const systemMsgs = messages.filter((m) => m.role === "system");
+  const systemText = systemMsgs
+    .map((m) => extractText(m.content))
+    .filter(Boolean)
     .join("\n\n");
+  const nonSystem = messages.filter((m) => m.role !== "system");
+  const body =
+    nonSystem.length === 1 && nonSystem[0].role === "user"
+      ? extractText(nonSystem[0].content)
+      : nonSystem
+          .map((m) => {
+            const role = m.role === "assistant" ? "Assistant" : "User";
+            return `${role}: ${extractText(m.content)}`;
+          })
+          .join("\n\n");
+
+  if (systemText) {
+    return `${systemText}\n\n${body}`;
+  }
+  return body;
 }
 
 const MODELS_WITH_EFFORT: Record<string, { default: string; allowed: string[] }> = {
